@@ -24,7 +24,7 @@ MAX_CHALLENGE_COUNT = 3
 
 logger = setup_logger(__file__)
 
-
+# メイングラフの状態
 class AgentState(TypedDict):
     question: str
     plan: list[str]
@@ -33,6 +33,7 @@ class AgentState(TypedDict):
     last_answer: str
 
 
+# サブグラフの状態
 class AgentSubGraphState(TypedDict):
     question: str
     plan: list[str]
@@ -393,6 +394,7 @@ class HelpDeskAgent:
 
         return {"subtask_results": [subtask_result]}
 
+    # グラフを構築する際のエッジの数が事前にわからない場合、LangGraphではSend APIを使う
     def _should_continue_exec_subtasks(self, state: AgentState) -> list:
         return [
             Send(
@@ -465,17 +467,19 @@ class HelpDeskAgent:
         # Add the execution step
         workflow.add_node("execute_subtasks", self._execute_subgraph)
 
+        # 最終回答作成ノード
         workflow.add_node("create_answer", self.create_answer)
 
+        # 実行の始点を計画作成ノードにセット
         workflow.add_edge(START, "create_plan")
 
-        # From plan we go to agent
+        # 計画からサブグラフの実行条件
         workflow.add_conditional_edges(
             "create_plan",
             self._should_continue_exec_subtasks,
         )
 
-        # From agent, we replan
+        # サブグラフの実行が全て終了したら最終回答へ
         workflow.add_edge("execute_subtasks", "create_answer")
 
         workflow.set_finish_point("create_answer")
